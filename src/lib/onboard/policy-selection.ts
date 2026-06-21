@@ -131,6 +131,11 @@ export function mergeRequiredSetupPolicyPresets(
   return filterSetupPolicyPresetNamesForAgent(mergedPresets, options.agent);
 }
 
+// Built-in web-search provider presets. Each is suggested only when web search
+// is enabled with that provider; otherwise it is pruned as stale (unless the
+// operator re-added it as a custom preset).
+const BUILTIN_WEB_SEARCH_PRESETS = ["brave", "firecrawl"] as const;
+
 export function isStaleBuiltinBravePolicyPreset(
   name: string,
   options: {
@@ -138,7 +143,18 @@ export function isStaleBuiltinBravePolicyPreset(
     customPresetNames?: ReadonlySet<string> | null;
   } = {},
 ): boolean {
-  return name === "brave" && !options.webSearchConfig && !options.customPresetNames?.has(name);
+  if (!BUILTIN_WEB_SEARCH_PRESETS.includes(name as (typeof BUILTIN_WEB_SEARCH_PRESETS)[number])) {
+    return false;
+  }
+  if (options.customPresetNames?.has(name)) return false;
+  const selectedProvider = options.webSearchConfig
+    ? options.webSearchConfig.provider === "firecrawl"
+      ? "firecrawl"
+      : "brave"
+    : null;
+  // Stale when web search is off (no selected provider), or when this preset is
+  // for a provider other than the selected one.
+  return selectedProvider !== name;
 }
 
 export function computeSetupPresetSuggestions(
@@ -174,7 +190,7 @@ export function computeSetupPresetSuggestions(
     if (known && !known.has(name)) return;
     suggestions.push(name);
   };
-  if (webSearchConfig) add("brave");
+  if (webSearchConfig) add(webSearchConfig.provider === "firecrawl" ? "firecrawl" : "brave");
   if (provider && deps.localInferenceProviders.includes(provider)) add("local-inference");
   if (isOpenclawAgent(agent)) {
     add("openclaw-pricing");

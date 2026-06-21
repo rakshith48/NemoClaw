@@ -128,6 +128,7 @@ describe("policies", () => {
         "brew",
         "claude-code",
         "discord",
+        "firecrawl",
         "github",
         "huggingface",
         "jira",

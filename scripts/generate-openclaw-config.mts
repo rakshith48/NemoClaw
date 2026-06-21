@@ -1261,11 +1261,20 @@ export function buildConfig(env: Env = process.env): JsonObject {
     // aborting the image build under `set -eu` before `doctor --fix` can
     // migrate it. Emit the current schema directly so install validates
     // cleanly. See NemoClaw #5266 (follow-up to #4955 / #3948).
-    tools.web.search = { enabled: true, provider: "brave" };
-    config.plugins.entries.brave = {
+    const rawProvider = env.NEMOCLAW_WEB_SEARCH_PROVIDER;
+    const provider = rawProvider === "firecrawl" ? "firecrawl" : "brave";
+    const envKey = provider === "firecrawl" ? "FIRECRAWL_API_KEY" : "BRAVE_API_KEY";
+    tools.web.search = { enabled: true, provider };
+    config.plugins.entries[provider] = {
       enabled: true,
-      config: { webSearch: { apiKey: "openshell:resolve:env:BRAVE_API_KEY" } },
+      config: { webSearch: { apiKey: `openshell:resolve:env:${envKey}` } },
     };
+    // Firecrawl also serves as a web_fetch provider (scrape/extract), so route
+    // web_fetch through it when it is the selected search provider. Brave does
+    // not provide a fetch backend, so its fetch block stays at the default.
+    if (provider === "firecrawl") {
+      tools.web.fetch = { ...(tools.web.fetch as JsonObject), enabled: true, provider: "firecrawl" };
+    }
   }
 
   return config;

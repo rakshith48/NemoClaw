@@ -16,7 +16,7 @@ describe("onboard summary helpers", () => {
       provider: "gemini-api",
       model: "gemini-2.5-flash",
       credentialEnv: "GEMINI_API_KEY",
-      webSearchConfig: { fetchEnabled: true },
+      webSearchConfig: { fetchEnabled: true, provider: "brave" },
       enabledChannels: ["telegram", "slack"],
       sandboxName: "my-assistant",
       notes: ["Sandbox build typically takes 5–15 minutes on this host."],

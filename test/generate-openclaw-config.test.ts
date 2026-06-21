@@ -809,6 +809,51 @@ describe("generate-openclaw-config.mts: config generation", () => {
     expect(config.tools?.web?.fetch).toEqual({ enabled: true, useTrustedEnvProxy: true });
   });
 
+  it("defaults to the brave plugin when web search is enabled without a provider", () => {
+    const config = runConfigScript({
+      NEMOCLAW_WEB_SEARCH_ENABLED: "1",
+      NEMOCLAW_WEB_SEARCH_PROVIDER: "",
+    });
+    expect(config.tools?.web?.search).toEqual({ enabled: true, provider: "brave" });
+    expect(config.plugins?.entries?.brave).toBeDefined();
+    expect(config.plugins?.entries?.firecrawl).toBeUndefined();
+  });
+
+  it("enables the firecrawl plugin and routes web_fetch through it when selected", () => {
+    const config = runConfigScript({
+      NEMOCLAW_WEB_SEARCH_ENABLED: "1",
+      NEMOCLAW_WEB_SEARCH_PROVIDER: "firecrawl",
+    });
+    expect(config.tools?.web?.search).toEqual({ enabled: true, provider: "firecrawl" });
+    expect(config.plugins?.entries?.firecrawl).toEqual({
+      enabled: true,
+      config: { webSearch: { apiKey: "openshell:resolve:env:FIRECRAWL_API_KEY" } },
+    });
+    expect(config.plugins?.entries?.brave).toBeUndefined();
+    // Firecrawl doubles as a web_fetch provider (scrape/extract).
+    expect(config.tools?.web?.fetch?.enabled).toBe(true);
+    expect(config.tools?.web?.fetch?.provider).toBe("firecrawl");
+  });
+
+  it("omits the web_fetch provider override when brave is the search provider", () => {
+    const config = runConfigScript({
+      NEMOCLAW_WEB_SEARCH_ENABLED: "1",
+      NEMOCLAW_WEB_SEARCH_PROVIDER: "brave",
+    });
+    expect(config.tools?.web?.fetch?.enabled).toBe(true);
+    expect(config.tools?.web?.fetch?.provider).toBeUndefined();
+  });
+
+  it("falls back to brave for an unrecognized web search provider value", () => {
+    const config = runConfigScript({
+      NEMOCLAW_WEB_SEARCH_ENABLED: "1",
+      NEMOCLAW_WEB_SEARCH_PROVIDER: "bogus",
+    });
+    expect(config.tools?.web?.search).toEqual({ enabled: true, provider: "brave" });
+    expect(config.plugins?.entries?.brave).toBeDefined();
+    expect(config.plugins?.entries?.firecrawl).toBeUndefined();
+  });
+
   it("omits web search when env is not set", () => {
     const config = runConfigScript();
     expect(config.tools?.toolSearch).toBe(true);

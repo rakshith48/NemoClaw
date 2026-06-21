@@ -255,6 +255,11 @@ export function patchStagedDockerfile(
     /^ARG NEMOCLAW_WEB_SEARCH_ENABLED=.*$/m,
     `ARG NEMOCLAW_WEB_SEARCH_ENABLED=${sanitizeDockerArg(webSearchConfig ? "1" : "0")}`,
   );
+  const webSearchProvider = webSearchConfig?.provider === "firecrawl" ? "firecrawl" : "brave";
+  dockerfile = dockerfile.replace(
+    /^ARG NEMOCLAW_WEB_SEARCH_PROVIDER=.*$/m,
+    `ARG NEMOCLAW_WEB_SEARCH_PROVIDER=${sanitizeDockerArg(webSearchProvider)}`,
+  );
   for (const envKey of [
     "NEMOCLAW_OPENCLAW_OTEL",
     "NEMOCLAW_OPENCLAW_OTEL_ENDPOINT",

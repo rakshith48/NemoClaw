@@ -182,7 +182,7 @@ describe("dockerfile patch helpers", () => {
       "build-1",
       "compatible-endpoint",
       null,
-      { fetchEnabled: true },
+      { fetchEnabled: true, provider: "brave" },
       "ghcr.io/nvidia/nemoclaw/sandbox-base@sha256:abc",
       true,
       null,
@@ -1194,6 +1194,7 @@ describe("dockerfile patch helpers", () => {
         "ARG NEMOCLAW_INFERENCE_API=openai-completions",
         "ARG NEMOCLAW_INFERENCE_COMPAT_B64=e30=",
         "ARG NEMOCLAW_WEB_SEARCH_ENABLED=0",
+        "ARG NEMOCLAW_WEB_SEARCH_PROVIDER=brave",
         "ARG NEMOCLAW_BUILD_ID=default",
       ].join("\n"),
     );
@@ -1208,10 +1209,11 @@ describe("dockerfile patch helpers", () => {
         "build-web",
         "openai-api",
         null,
-        { fetchEnabled: true },
+        { fetchEnabled: true, provider: "brave" },
       );
       const patched = fs.readFileSync(dockerfilePath, "utf8");
       assert.match(patched, /^ARG NEMOCLAW_WEB_SEARCH_ENABLED=1$/m);
+      assert.match(patched, /^ARG NEMOCLAW_WEB_SEARCH_PROVIDER=brave$/m);
       // Regression guard: the old secret-bearing build arg must not reappear.
       assert.doesNotMatch(patched, /NEMOCLAW_WEB_CONFIG_B64/);
     } finally {
@@ -1219,6 +1221,52 @@ describe("dockerfile patch helpers", () => {
         delete process.env.BRAVE_API_KEY;
       } else {
         process.env.BRAVE_API_KEY = priorBraveKey;
+      }
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("patches the staged Dockerfile with Firecrawl Search config when selected", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "nemoclaw-onboard-dockerfile-fc-"));
+    const dockerfilePath = path.join(tmpDir, "Dockerfile");
+    fs.writeFileSync(
+      dockerfilePath,
+      [
+        "ARG NEMOCLAW_MODEL=nvidia/nemotron-3-super-120b-a12b",
+        "ARG NEMOCLAW_PROVIDER_KEY=nvidia",
+        "ARG NEMOCLAW_PRIMARY_MODEL_REF=nvidia/nemotron-3-super-120b-a12b",
+        "ARG CHAT_UI_URL=http://127.0.0.1:18789",
+        "ARG NEMOCLAW_INFERENCE_BASE_URL=https://inference.local/v1",
+        "ARG NEMOCLAW_INFERENCE_API=openai-completions",
+        "ARG NEMOCLAW_INFERENCE_COMPAT_B64=e30=",
+        "ARG NEMOCLAW_WEB_SEARCH_ENABLED=0",
+        "ARG NEMOCLAW_WEB_SEARCH_PROVIDER=brave",
+        "ARG NEMOCLAW_BUILD_ID=default",
+      ].join("\n"),
+    );
+
+    const priorFirecrawlKey = process.env.FIRECRAWL_API_KEY;
+    process.env.FIRECRAWL_API_KEY = "fc-test-key";
+    try {
+      patchStagedDockerfile(
+        dockerfilePath,
+        "gpt-5.4",
+        "http://127.0.0.1:18789",
+        "build-web",
+        "openai-api",
+        null,
+        { fetchEnabled: true, provider: "firecrawl" },
+      );
+      const patched = fs.readFileSync(dockerfilePath, "utf8");
+      assert.match(patched, /^ARG NEMOCLAW_WEB_SEARCH_ENABLED=1$/m);
+      assert.match(patched, /^ARG NEMOCLAW_WEB_SEARCH_PROVIDER=firecrawl$/m);
+      // Regression guard: the old secret-bearing build arg must not reappear.
+      assert.doesNotMatch(patched, /NEMOCLAW_WEB_CONFIG_B64/);
+    } finally {
+      if (priorFirecrawlKey === undefined) {
+        delete process.env.FIRECRAWL_API_KEY;
+      } else {
+        process.env.FIRECRAWL_API_KEY = priorFirecrawlKey;
       }
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

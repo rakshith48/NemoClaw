@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { redactForLog } from "./redact.js";
+import { redactForLog, redactSensitiveText } from "./redact.js";
 
 describe("redactForLog", () => {
   it("redacts sensitive object keys recursively while preserving safe fields", () => {
@@ -38,6 +38,17 @@ describe("redactForLog", () => {
       message: "upstream returned Authorization: Bearer <REDACTED>",
       url: "https://example.test/path?access_token=<REDACTED>",
     });
+  });
+
+  it("redacts web-search provider API keys in env-assignment text", () => {
+    const result = redactSensitiveText(
+      "validation failed: BRAVE_API_KEY=brv-secret-key FIRECRAWL_API_KEY=fc-secret-key",
+    );
+
+    expect(result).toContain("BRAVE_API_KEY=<REDACTED>");
+    expect(result).toContain("FIRECRAWL_API_KEY=<REDACTED>");
+    expect(result).not.toContain("brv-secret-key");
+    expect(result).not.toContain("fc-secret-key");
   });
 
   it("does not recurse forever on circular objects", () => {

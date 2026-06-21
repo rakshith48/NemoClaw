@@ -6,6 +6,15 @@ import path from "node:path";
 import { compactText } from "../core/url-utils";
 
 export const BRAVE_PROVIDER_PROFILE_ID = "brave";
+export const FIRECRAWL_PROVIDER_PROFILE_ID = "firecrawl";
+
+// OpenShell provider-profile ids that back the selectable web-search providers.
+// Each maps to a YAML profile under nemoclaw-blueprint/provider-profiles/ that
+// teaches the L7 proxy how to inject the provider's auth header.
+const WEB_SEARCH_PROVIDER_PROFILE_IDS = [
+  BRAVE_PROVIDER_PROFILE_ID,
+  FIRECRAWL_PROVIDER_PROFILE_ID,
+] as const;
 
 /**
  * Single source of truth for "the user opted in to Brave Search at runtime."
@@ -46,42 +55,67 @@ function bufferOrStringToText(value: string | Buffer | null | undefined): string
 }
 
 export function braveProviderProfilePath(root: string): string {
-  return path.join(root, "nemoclaw-blueprint", "provider-profiles", "brave.yaml");
+  return webSearchProviderProfilePath(root, BRAVE_PROVIDER_PROFILE_ID);
+}
+
+export function webSearchProviderProfilePath(root: string, providerProfileId: string): string {
+  return path.join(root, "nemoclaw-blueprint", "provider-profiles", `${providerProfileId}.yaml`);
+}
+
+const WEB_SEARCH_PROVIDER_LABELS: Record<string, string> = {
+  [BRAVE_PROVIDER_PROFILE_ID]: "Brave Search",
+  [FIRECRAWL_PROVIDER_PROFILE_ID]: "Firecrawl Search",
+};
+
+/**
+ * Register the web-search provider profiles (Brave, Firecrawl) with OpenShell
+ * so providers created with `--type <provider>` drive the L7 proxy's auth
+ * header rewrite (X-Subscription-Token for Brave, Authorization: Bearer for
+ * Firecrawl). Only the profiles actually referenced by a usable token def are
+ * imported. Idempotent: tolerates OpenShell reporting an already-registered
+ * profile.
+ */
+export function ensureWebSearchProviderProfiles(
+  tokenDefs: readonly TokenDefShape[],
+  deps: BraveProviderProfileDeps,
+): void {
+  const errorLog = deps.log ?? console.error;
+  const exit = deps.exit ?? ((code?: number) => process.exit(code));
+
+  for (const providerProfileId of WEB_SEARCH_PROVIDER_PROFILE_IDS) {
+    const needs = tokenDefs.some(
+      ({ providerType, token }) => providerType === providerProfileId && Boolean(token),
+    );
+    if (!needs) continue;
+
+    const result = deps.runOpenshell(
+      ["provider", "profile", "import", "--file", webSearchProviderProfilePath(deps.root, providerProfileId)],
+      { ignoreError: true, stdio: ["ignore", "pipe", "pipe"] },
+    );
+    if (result.status === 0) continue;
+
+    // OpenShell reports re-imports of an already-registered custom profile as
+    // a non-zero exit. Tolerate that so re-onboard / recreate keeps working.
+    const rawDiagnostic = `${bufferOrStringToText(result.stderr)} ${bufferOrStringToText(result.stdout)}`;
+    if (/already exists/i.test(rawDiagnostic)) continue;
+
+    const label = WEB_SEARCH_PROVIDER_LABELS[providerProfileId] ?? providerProfileId;
+    const diagnostic = compactText(deps.redact(rawDiagnostic));
+    errorLog(`\n  ✗ Failed to register the ${label} provider profile with OpenShell.`);
+    if (diagnostic) errorLog(`    ${diagnostic.slice(0, 500)}`);
+    errorLog("    Update OpenShell with scripts/install-openshell.sh and re-run onboarding.");
+    exit(result.status || 1);
+  }
 }
 
 /**
- * Register the Brave Search provider profile with OpenShell so providers
- * created with `--type brave` drive the L7 proxy's X-Subscription-Token
- * rewrite. Skipped unless at least one token definition is Brave-typed and
- * has a usable token. Idempotent: tolerates OpenShell reporting that the
- * custom profile is already registered.
+ * Back-compat shim: callers that only registered Brave now register all
+ * referenced web-search provider profiles. Retained so existing import sites
+ * keep working without a churny rename.
  */
 export function ensureBraveProviderProfile(
   tokenDefs: readonly TokenDefShape[],
   deps: BraveProviderProfileDeps,
 ): void {
-  const needs = tokenDefs.some(
-    ({ providerType, token }) => providerType === BRAVE_PROVIDER_PROFILE_ID && Boolean(token),
-  );
-  if (!needs) return;
-
-  const errorLog = deps.log ?? console.error;
-  const exit = deps.exit ?? ((code?: number) => process.exit(code));
-
-  const result = deps.runOpenshell(
-    ["provider", "profile", "import", "--file", braveProviderProfilePath(deps.root)],
-    { ignoreError: true, stdio: ["ignore", "pipe", "pipe"] },
-  );
-  if (result.status === 0) return;
-
-  // OpenShell reports re-imports of an already-registered custom profile as
-  // a non-zero exit. Tolerate that so re-onboard / recreate keeps working.
-  const rawDiagnostic = `${bufferOrStringToText(result.stderr)} ${bufferOrStringToText(result.stdout)}`;
-  if (/already exists/i.test(rawDiagnostic)) return;
-
-  const diagnostic = compactText(deps.redact(rawDiagnostic));
-  errorLog("\n  ✗ Failed to register the Brave Search provider profile with OpenShell.");
-  if (diagnostic) errorLog(`    ${diagnostic.slice(0, 500)}`);
-  errorLog("    Update OpenShell with scripts/install-openshell.sh and re-run onboarding.");
-  exit(result.status || 1);
+  ensureWebSearchProviderProfiles(tokenDefs, deps);
 }

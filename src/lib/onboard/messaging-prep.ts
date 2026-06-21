@@ -75,14 +75,20 @@ export function prepareCreateSandboxMessaging(
     .filter(({ envKey }) => !enabledEnvKeys || enabledEnvKeys.has(envKey))
     .filter(({ envKey }) => !disabledEnvKeys.has(envKey));
 
-  const braveWebSearchEnabled = braveProviderProfile.shouldEnableBraveWebSearch(
-    input.webSearchConfig,
-  );
-  const braveApiKey = braveWebSearchEnabled
-    ? input.getCredential(webSearch.BRAVE_API_KEY_ENV) ||
-      input.normalizeCredentialValue(input.env[webSearch.BRAVE_API_KEY_ENV])
+  const webSearchEnabled = braveProviderProfile.shouldEnableBraveWebSearch(input.webSearchConfig);
+  // The selected provider determines which credential env var and which
+  // OpenShell provider-profile type (`brave` vs `firecrawl`) the runtime
+  // web-search token is registered under. Defaults to Brave for legacy
+  // sessions persisted before provider selection existed.
+  const webSearchProvider = input.webSearchConfig?.provider === "firecrawl" ? "firecrawl" : "brave";
+  const webSearchEnvKey = webSearch.webSearchEnvFor(webSearchProvider);
+  const webSearchApiKey = webSearchEnabled
+    ? input.getCredential(webSearchEnvKey) ||
+      input.normalizeCredentialValue(input.env[webSearchEnvKey])
     : null;
-  const missingBraveApiKey = braveWebSearchEnabled && !braveApiKey;
+  // Field name kept for the existing public result contract; it now reflects
+  // "the selected web-search provider key is missing", not Brave specifically.
+  const missingBraveApiKey = webSearchEnabled && !webSearchApiKey;
   if (missingBraveApiKey) {
     return {
       disabledChannelNames,
@@ -95,12 +101,12 @@ export function prepareCreateSandboxMessaging(
     };
   }
 
-  if (braveWebSearchEnabled) {
+  if (webSearchEnabled) {
     messagingTokenDefs.push({
-      name: `${input.sandboxName}-brave-search`,
-      envKey: webSearch.BRAVE_API_KEY_ENV,
-      token: braveApiKey,
-      providerType: braveProviderProfile.BRAVE_PROVIDER_PROFILE_ID,
+      name: `${input.sandboxName}-${webSearchProvider}-search`,
+      envKey: webSearchEnvKey,
+      token: webSearchApiKey,
+      providerType: webSearchProvider,
     });
   }
 

@@ -26,6 +26,7 @@ tiers:
       - { name: huggingface,  access: read-write }
       - { name: brew,         access: read-write }
       - { name: brave,        access: read-write }
+      - { name: firecrawl,    access: read-write }
       - { name: weather,      access: read }
 
   - name: open
@@ -37,6 +38,7 @@ tiers:
       - { name: huggingface,  access: read-write }
       - { name: brew,         access: read-write }
       - { name: brave,        access: read-write }
+      - { name: firecrawl,    access: read-write }
       - { name: weather,      access: read }
       - { name: public-reference, access: read }
       - { name: slack,        access: read-write }

@@ -7,7 +7,10 @@ import {
   BRAVE_PROVIDER_PROFILE_ID,
   braveProviderProfilePath,
   ensureBraveProviderProfile,
+  ensureWebSearchProviderProfiles,
+  FIRECRAWL_PROVIDER_PROFILE_ID,
   shouldEnableBraveWebSearch,
+  webSearchProviderProfilePath,
 } from "./brave-provider-profile";
 
 function makeDeps(runOpenshell: ReturnType<typeof vi.fn>, overrides: Record<string, unknown> = {}) {
@@ -81,6 +84,48 @@ describe("ensureBraveProviderProfile", () => {
       ),
     ).toThrow(/exit:2/);
     expect(deps.exit).toHaveBeenCalledWith(2);
+  });
+});
+
+describe("ensureWebSearchProviderProfiles (Firecrawl)", () => {
+  it("imports the Firecrawl profile from the blueprint path when a firecrawl token is present", () => {
+    const runOpenshell = vi.fn(() => ({ status: 0, stderr: "", stdout: "" }));
+    ensureWebSearchProviderProfiles(
+      [{ providerType: FIRECRAWL_PROVIDER_PROFILE_ID, token: "fc-test" }],
+      makeDeps(runOpenshell),
+    );
+    expect(runOpenshell).toHaveBeenCalledTimes(1);
+    expect(runOpenshell).toHaveBeenCalledWith(
+      [
+        "provider",
+        "profile",
+        "import",
+        "--file",
+        webSearchProviderProfilePath("/repo", FIRECRAWL_PROVIDER_PROFILE_ID),
+      ],
+      expect.objectContaining({ ignoreError: true }),
+    );
+  });
+
+  it("imports both profiles when both web-search tokens are present", () => {
+    const runOpenshell = vi.fn(() => ({ status: 0, stderr: "", stdout: "" }));
+    ensureWebSearchProviderProfiles(
+      [
+        { providerType: BRAVE_PROVIDER_PROFILE_ID, token: "brv-test" },
+        { providerType: FIRECRAWL_PROVIDER_PROFILE_ID, token: "fc-test" },
+      ],
+      makeDeps(runOpenshell),
+    );
+    expect(runOpenshell).toHaveBeenCalledTimes(2);
+  });
+
+  it("does nothing when no web-search token def matches a known profile", () => {
+    const runOpenshell = vi.fn();
+    ensureWebSearchProviderProfiles(
+      [{ providerType: "generic", token: "tok" }],
+      makeDeps(runOpenshell),
+    );
+    expect(runOpenshell).not.toHaveBeenCalled();
   });
 });
 

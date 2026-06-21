@@ -78,7 +78,9 @@ export function getSuggestedPolicyPresets({
     );
   }
 
-  if (webSearchConfig) suggestions.push("brave");
+  if (webSearchConfig) {
+    suggestions.push(webSearchConfig.provider === "firecrawl" ? "firecrawl" : "brave");
+  }
 
   return suggestions;
 }
