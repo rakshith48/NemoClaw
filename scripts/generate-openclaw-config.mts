@@ -1269,12 +1269,26 @@ export function buildConfig(env: Env = process.env): JsonObject {
       enabled: true,
       config: { webSearch: { apiKey: `openshell:resolve:env:${envKey}` } },
     };
-    // Firecrawl also serves as a web_fetch provider (scrape/extract), so route
-    // web_fetch through it when it is the selected search provider. Brave does
-    // not provide a fetch backend, so its fetch block stays at the default.
-    if (provider === "firecrawl") {
-      tools.web.fetch = { ...(tools.web.fetch as JsonObject), enabled: true, provider: "firecrawl" };
-    }
+  }
+
+  // Firecrawl also serves as a web_fetch provider (page extraction), independent
+  // of search. Route web_fetch through it whenever Firecrawl is selected — in
+  // keyed mode (alongside search) or keyless mode (web_fetch only, no API key,
+  // which OpenClaw's starter tier supports). Brave has no fetch backend, so its
+  // fetch block stays at the default. The plugin entry is merged so a keyed
+  // firecrawl webSearch.apiKey (set above) is preserved alongside webFetch.
+  if (env.NEMOCLAW_WEB_FETCH_PROVIDER === "firecrawl") {
+    tools.web.fetch = { ...(tools.web.fetch as JsonObject), enabled: true, provider: "firecrawl" };
+    const entries = config.plugins.entries as JsonObject;
+    const existingEntry = isObject(entries.firecrawl) ? (entries.firecrawl as JsonObject) : {};
+    const existingEntryConfig = isObject(existingEntry.config)
+      ? (existingEntry.config as JsonObject)
+      : {};
+    entries.firecrawl = {
+      ...existingEntry,
+      enabled: true,
+      config: { ...existingEntryConfig, webFetch: { onlyMainContent: true } },
+    };
   }
 
   return config;

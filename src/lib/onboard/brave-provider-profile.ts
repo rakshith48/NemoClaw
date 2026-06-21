@@ -17,17 +17,21 @@ const WEB_SEARCH_PROVIDER_PROFILE_IDS = [
 ] as const;
 
 /**
- * Single source of truth for "the user opted in to Brave Search at runtime."
- * Returning true on a config whose `fetchEnabled` is false would cause
- * `createSandbox` to push a Brave provider/token and trip the BRAVE_API_KEY-
- * required abort even when the feature is off, while the downstream
- * finalization/verifier paths already gate on `fetchEnabled`. Keep every gate
- * routed through this helper so they stay aligned.
+ * Single source of truth for "the user opted into a keyed web-search provider
+ * at runtime." Returning true on a config whose `fetchEnabled` is false would
+ * cause `createSandbox` to push a provider/token and trip the API-key-required
+ * abort even when the feature is off, while the downstream finalization/verifier
+ * paths already gate on `fetchEnabled`. Keep every gate routed through this
+ * helper so they stay aligned.
+ *
+ * Firecrawl's keyless tier (`keyless: true`) configures `web_fetch` only and
+ * collects no API key, so it must NOT register a runtime web-search token or
+ * provider profile — gate it off here even though `fetchEnabled` is true.
  */
 export function shouldEnableBraveWebSearch(
-  webSearchConfig: { fetchEnabled?: boolean | null } | null | undefined,
+  webSearchConfig: { fetchEnabled?: boolean | null; keyless?: boolean | null } | null | undefined,
 ): boolean {
-  return Boolean(webSearchConfig?.fetchEnabled);
+  return Boolean(webSearchConfig?.fetchEnabled) && webSearchConfig?.keyless !== true;
 }
 
 export type BraveProviderProfileDeps = {

@@ -878,6 +878,37 @@ describe("onboard session", () => {
     });
   });
 
+  it("round-trips the keyless Firecrawl flag through persisted sessions", () => {
+    session.saveSession(
+      session.createSession({
+        webSearchConfig: { fetchEnabled: true, provider: "firecrawl", keyless: true },
+      }),
+    );
+
+    const loaded = requireLoadedSession(session.loadSession());
+    expect(loaded.webSearchConfig).toEqual({
+      fetchEnabled: true,
+      provider: "firecrawl",
+      keyless: true,
+    });
+  });
+
+  it("drops the keyless flag for non-Firecrawl providers", () => {
+    // keyless is Firecrawl-only; a brave config must not carry it through.
+    session.saveSession(
+      session.createSession({
+        webSearchConfig: {
+          fetchEnabled: true,
+          provider: "brave",
+          keyless: true,
+        } as never,
+      }),
+    );
+
+    const loaded = requireLoadedSession(session.loadSession());
+    expect(loaded.webSearchConfig).toEqual({ fetchEnabled: true, provider: "brave" });
+  });
+
   it("does not clear existing metadata when updates omit whitelisted metadata fields", () => {
     session.saveSession(
       session.createSession({ metadata: { gatewayName: "nemoclaw", fromDockerfile: null } }),

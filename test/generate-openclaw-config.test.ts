@@ -823,16 +823,41 @@ describe("generate-openclaw-config.mts: config generation", () => {
     const config = runConfigScript({
       NEMOCLAW_WEB_SEARCH_ENABLED: "1",
       NEMOCLAW_WEB_SEARCH_PROVIDER: "firecrawl",
+      // dockerfile-patch sets this whenever firecrawl is selected (keyed or keyless).
+      NEMOCLAW_WEB_FETCH_PROVIDER: "firecrawl",
     });
     expect(config.tools?.web?.search).toEqual({ enabled: true, provider: "firecrawl" });
+    // Keyed firecrawl carries both webSearch (for search) and webFetch (for fetch).
     expect(config.plugins?.entries?.firecrawl).toEqual({
       enabled: true,
-      config: { webSearch: { apiKey: "openshell:resolve:env:FIRECRAWL_API_KEY" } },
+      config: {
+        webSearch: { apiKey: "openshell:resolve:env:FIRECRAWL_API_KEY" },
+        webFetch: { onlyMainContent: true },
+      },
     });
     expect(config.plugins?.entries?.brave).toBeUndefined();
     // Firecrawl doubles as a web_fetch provider (scrape/extract).
     expect(config.tools?.web?.fetch?.enabled).toBe(true);
     expect(config.tools?.web?.fetch?.provider).toBe("firecrawl");
+  });
+
+  it("configures keyless firecrawl web_fetch without web search or an API key", () => {
+    const config = runConfigScript({
+      // Keyless: search disabled, only the web_fetch provider signal is set.
+      NEMOCLAW_WEB_SEARCH_ENABLED: "0",
+      NEMOCLAW_WEB_FETCH_PROVIDER: "firecrawl",
+    });
+    // No web search is configured in keyless mode.
+    expect(config.tools?.web?.search).toBeUndefined();
+    // web_fetch routes through Firecrawl.
+    expect(config.tools?.web?.fetch?.enabled).toBe(true);
+    expect(config.tools?.web?.fetch?.provider).toBe("firecrawl");
+    // Plugin entry is enabled with a webFetch config but NO webSearch apiKey.
+    expect(config.plugins?.entries?.firecrawl).toEqual({
+      enabled: true,
+      config: { webFetch: { onlyMainContent: true } },
+    });
+    expect(config.plugins?.entries?.brave).toBeUndefined();
   });
 
   it("omits the web_fetch provider override when brave is the search provider", () => {

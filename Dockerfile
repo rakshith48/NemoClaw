@@ -635,6 +635,10 @@ ARG NEMOCLAW_WEB_SEARCH_ENABLED=0
 # ("brave" or "firecrawl"). Selects the OpenClaw plugin to install and the
 # provider written into openclaw.json. Defaults to brave for back-compat.
 ARG NEMOCLAW_WEB_SEARCH_PROVIDER=brave
+# Non-secret: web_fetch provider, set independently of search. "firecrawl"
+# enables the Firecrawl web_fetch fallback — including its keyless starter tier
+# (no API key) when NEMOCLAW_WEB_SEARCH_ENABLED=0. Empty for non-Firecrawl.
+ARG NEMOCLAW_WEB_FETCH_PROVIDER=
 ARG NEMOCLAW_OPENCLAW_OTEL=0
 ARG NEMOCLAW_OPENCLAW_OTEL_ENDPOINT=http://host.openshell.internal:4318
 ARG NEMOCLAW_OPENCLAW_OTEL_SERVICE_NAME=openclaw-gateway
@@ -665,6 +669,7 @@ ENV NEMOCLAW_MODEL=${NEMOCLAW_MODEL} \
     NEMOCLAW_PROXY_PORT=${NEMOCLAW_PROXY_PORT} \
     NEMOCLAW_WEB_SEARCH_ENABLED=${NEMOCLAW_WEB_SEARCH_ENABLED} \
     NEMOCLAW_WEB_SEARCH_PROVIDER=${NEMOCLAW_WEB_SEARCH_PROVIDER} \
+    NEMOCLAW_WEB_FETCH_PROVIDER=${NEMOCLAW_WEB_FETCH_PROVIDER} \
     NEMOCLAW_OPENCLAW_OTEL=${NEMOCLAW_OPENCLAW_OTEL} \
     NEMOCLAW_OPENCLAW_OTEL_ENDPOINT=${NEMOCLAW_OPENCLAW_OTEL_ENDPOINT} \
     NEMOCLAW_OPENCLAW_OTEL_SERVICE_NAME=${NEMOCLAW_OPENCLAW_OTEL_SERVICE_NAME} \
@@ -704,7 +709,7 @@ RUN NEMOCLAW_OPENCLAW_MANAGED_PROXY=0 node --experimental-strip-types /scripts/g
 # Install non-messaging OpenClaw plugins that need to match the runtime.
 # hadolint ignore=DL3059,DL4006
 RUN set -eu; \
-    if [ "$NEMOCLAW_OPENCLAW_OTEL" = "1" ] || [ "$NEMOCLAW_WEB_SEARCH_ENABLED" = "1" ]; then \
+    if [ "$NEMOCLAW_OPENCLAW_OTEL" = "1" ] || [ "$NEMOCLAW_WEB_SEARCH_ENABLED" = "1" ] || [ "$NEMOCLAW_WEB_FETCH_PROVIDER" = "firecrawl" ]; then \
         test -n "$OPENCLAW_VERSION"; \
     fi; \
     if [ "$NEMOCLAW_OPENCLAW_OTEL" = "1" ]; then \
@@ -718,6 +723,11 @@ RUN set -eu; \
             openclaw plugins install "npm:@openclaw/brave-plugin@${OPENCLAW_VERSION}" --pin; \
             BRAVE_API_KEY=openshell:resolve:env:BRAVE_API_KEY openclaw doctor --fix --non-interactive; \
         fi; \
+    elif [ "$NEMOCLAW_WEB_FETCH_PROVIDER" = "firecrawl" ]; then \
+        # Keyless Firecrawl web_fetch fallback: install the plugin and migrate
+        # config without an API key (starter tier needs none). \
+        openclaw plugins install "npm:@openclaw/firecrawl-plugin@${OPENCLAW_VERSION}" --pin; \
+        openclaw doctor --fix --non-interactive; \
     elif [ "$NEMOCLAW_OPENCLAW_OTEL" = "1" ]; then \
         openclaw doctor --fix --non-interactive; \
     fi

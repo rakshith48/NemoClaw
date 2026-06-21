@@ -342,6 +342,29 @@ export function createWebSearchFlowHelpers(deps: WebSearchFlowDeps): WebSearchFl
     return null;
   }
 
+  // Firecrawl supports a keyless starter tier for `web_fetch` (page extraction)
+  // only; web_search and firecrawl_scrape require an API key. Let the user opt
+  // into keyless fetch instead of entering a key. Returns "keyed" to continue
+  // to API-key collection, "keyless" for the no-key web_fetch path, or
+  // BACK_TO_SELECTION to return to the provider picker.
+  async function promptFirecrawlKeyMode(): Promise<"keyed" | "keyless" | BackToSelection> {
+    console.log("");
+    console.log("  Firecrawl offers a keyless starter tier for web fetch (page extraction).");
+    console.log("  Web search and firecrawl_scrape require an API key.");
+    console.log("    [1] I have a Firecrawl API key (enables web search + web fetch)");
+    console.log("    [2] Keyless — web fetch only, no API key");
+    while (true) {
+      const raw = (await deps.prompt("  Choose [1-2]: ")).trim().toLowerCase();
+      if (raw === "" || raw === "1" || raw === "key" || raw === "keyed") return "keyed";
+      if (raw === "2" || raw === "keyless") return "keyless";
+      if (raw === "back") return BACK_TO_SELECTION;
+      if (raw === "exit" || raw === "quit") {
+        exitOnboardFromPrompt();
+      }
+      console.log("  Enter 1 or 2 (or 'back').");
+    }
+  }
+
   async function promptWebSearchProvider(): Promise<WebSearchProvider | null> {
     console.log("");
     console.log("  Enable web search for your agent?");
@@ -374,7 +397,8 @@ export function createWebSearchFlowHelpers(deps: WebSearchFlowDeps): WebSearchFl
         existingConfig.provider === "firecrawl" || existingConfig.provider === "brave"
           ? existingConfig.provider
           : "brave";
-      return { fetchEnabled: true, provider };
+      const keyless = provider === "firecrawl" && existingConfig.keyless === true;
+      return { fetchEnabled: true, provider, ...(keyless ? { keyless: true } : {}) };
     }
 
     if (deps.isNonInteractive()) {
@@ -407,6 +431,20 @@ export function createWebSearchFlowHelpers(deps: WebSearchFlowDeps): WebSearchFl
     }
 
     const spec = getWebSearchProviderSpec(provider);
+
+    // Firecrawl: offer the keyless web_fetch tier before collecting a key.
+    if (provider === "firecrawl") {
+      const mode = await promptFirecrawlKeyMode();
+      if (isBackToSelection(mode)) {
+        return configureWebSearch(existingConfig, agent, dockerfilePathOverride);
+      }
+      if (mode === "keyless") {
+        console.log("  ✓ Enabled Firecrawl (keyless web fetch — no web search)");
+        console.log("");
+        return { fetchEnabled: true, provider, keyless: true };
+      }
+    }
+
     const apiKey = await ensureValidatedWebSearchCredential(spec);
     if (isBackToSelection(apiKey)) {
       return configureWebSearch(existingConfig, agent, dockerfilePathOverride);

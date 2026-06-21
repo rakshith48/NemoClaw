@@ -22,6 +22,11 @@ vi.mock("../runner", () => ({
   ROOT: "/tmp/nemoclaw-web-search-flow-test",
 }));
 
+// Keyless test exercises configureWebSearch end-to-end; force the agent gate on.
+vi.mock("./web-search-support", () => ({
+  agentSupportsWebSearch: () => true,
+}));
+
 function webSearchProbeTempDirs(): string[] {
   return fs
     .readdirSync(os.tmpdir())
@@ -38,6 +43,31 @@ function helpers() {
     runCaptureOpenshell: () => null,
   });
 }
+
+function helpersWithPrompts(answers: string[]) {
+  let i = 0;
+  return createWebSearchFlowHelpers({
+    prompt: async () => answers[i++] ?? "",
+    note: () => {},
+    isNonInteractive: () => false,
+    cliName: () => "nemoclaw",
+    runCaptureOpenshell: () => null,
+  });
+}
+
+describe("web search flow keyless Firecrawl", () => {
+  beforeEach(() => {
+    vi.mocked(runCurlProbe).mockClear();
+  });
+
+  it("returns a keyless web_fetch config without collecting or validating a key", async () => {
+    // Provider pick "3" = Firecrawl; key mode "2" = keyless web fetch.
+    const result = await helpersWithPrompts(["3", "2"]).configureWebSearch();
+    expect(result).toEqual({ fetchEnabled: true, provider: "firecrawl", keyless: true });
+    // The keyless path must never reach the API-key validation probe.
+    expect(runCurlProbe).not.toHaveBeenCalled();
+  });
+});
 
 describe("web search flow Brave validation", () => {
   beforeEach(() => {

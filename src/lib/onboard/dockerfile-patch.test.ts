@@ -231,6 +231,65 @@ describe("dockerfile patch helpers", () => {
     );
   });
 
+  it("decouples the web_fetch provider arg for keyed vs keyless Firecrawl", () => {
+    const template = [
+      "ARG NEMOCLAW_MODEL=old",
+      "ARG NEMOCLAW_PROVIDER_KEY=old",
+      "ARG NEMOCLAW_PRIMARY_MODEL_REF=old",
+      "ARG CHAT_UI_URL=old",
+      "ARG NEMOCLAW_INFERENCE_BASE_URL=old",
+      "ARG NEMOCLAW_INFERENCE_API=old",
+      "ARG NEMOCLAW_INFERENCE_COMPAT_B64=old",
+      "ARG NEMOCLAW_BUILD_ID=old",
+      "ARG NEMOCLAW_DARWIN_VM_COMPAT=0",
+      "ARG NEMOCLAW_WEB_SEARCH_ENABLED=0",
+      "ARG NEMOCLAW_WEB_SEARCH_PROVIDER=brave",
+      "ARG NEMOCLAW_WEB_FETCH_PROVIDER=",
+      "ARG NEMOCLAW_MESSAGING_PLAN_B64=old",
+    ].join("\n");
+
+    function patchWith(webSearchConfig: {
+      fetchEnabled: boolean;
+      provider: "brave" | "firecrawl";
+      keyless?: boolean;
+    }): string {
+      setMessagingPlanEnv();
+      const dockerfilePath = dockerfileWith(template);
+      patchStagedDockerfile(
+        dockerfilePath,
+        "custom-model",
+        "https://chat.example",
+        "build-1",
+        "compatible-endpoint",
+        null,
+        webSearchConfig,
+        "ghcr.io/nvidia/nemoclaw/sandbox-base@sha256:abc",
+        true,
+        null,
+        [],
+      );
+      return fs.readFileSync(dockerfilePath, "utf-8");
+    }
+
+    // Keyed Firecrawl: search enabled AND fetch routed through Firecrawl.
+    const keyed = patchWith({ fetchEnabled: true, provider: "firecrawl" });
+    expect(keyed).toContain("ARG NEMOCLAW_WEB_SEARCH_ENABLED=1");
+    expect(keyed).toContain("ARG NEMOCLAW_WEB_SEARCH_PROVIDER=firecrawl");
+    expect(keyed).toContain("ARG NEMOCLAW_WEB_FETCH_PROVIDER=firecrawl");
+
+    // Keyless Firecrawl: search disabled (no key), but fetch still routed.
+    const keyless = patchWith({ fetchEnabled: true, provider: "firecrawl", keyless: true });
+    expect(keyless).toContain("ARG NEMOCLAW_WEB_SEARCH_ENABLED=0");
+    expect(keyless).toContain("ARG NEMOCLAW_WEB_SEARCH_PROVIDER=firecrawl");
+    expect(keyless).toContain("ARG NEMOCLAW_WEB_FETCH_PROVIDER=firecrawl");
+
+    // Brave: search enabled, no Firecrawl fetch routing.
+    const brave = patchWith({ fetchEnabled: true, provider: "brave" });
+    expect(brave).toContain("ARG NEMOCLAW_WEB_SEARCH_ENABLED=1");
+    expect(brave).toContain("ARG NEMOCLAW_WEB_FETCH_PROVIDER=");
+    expect(brave).not.toContain("ARG NEMOCLAW_WEB_FETCH_PROVIDER=firecrawl");
+  });
+
   it("uses the shared sandbox inference mapping", () => {
     const dockerfilePath = dockerfileWith(
       [

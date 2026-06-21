@@ -273,7 +273,9 @@ function readStepStatus(value: SessionJsonValue | undefined): StepStatus | null 
 function parseWebSearchConfig(value: SessionJsonValue | undefined): WebSearchConfig | null {
   if (!isObject(value) || value.fetchEnabled !== true) return null;
   const provider = value.provider === "firecrawl" ? "firecrawl" : "brave";
-  return { fetchEnabled: true, provider };
+  // keyless is a Firecrawl-only opt-in (web_fetch starter tier, no API key).
+  const keyless = provider === "firecrawl" && value.keyless === true;
+  return { fetchEnabled: true, provider, ...(keyless ? { keyless: true } : {}) };
 }
 
 function parseTelegramConfig(value: unknown): TelegramConfig | null {
@@ -452,6 +454,10 @@ export function createSession(overrides: Partial<Session> = {}): Session {
         ? {
             fetchEnabled: true,
             provider: overrides.webSearchConfig.provider === "firecrawl" ? "firecrawl" : "brave",
+            ...(overrides.webSearchConfig.provider === "firecrawl" &&
+            overrides.webSearchConfig.keyless === true
+              ? { keyless: true }
+              : {}),
           }
         : null,
     hermesToolGateways: readStringArray(overrides.hermesToolGateways),
@@ -983,9 +989,12 @@ export function filterSafeUpdates(updates: SessionUpdates): Partial<Session> {
     safe.routerCredentialHash = updates.routerCredentialHash;
   }
   if (isObject(updates.webSearchConfig) && updates.webSearchConfig.fetchEnabled === true) {
+    const provider = updates.webSearchConfig.provider === "firecrawl" ? "firecrawl" : "brave";
+    const keyless = provider === "firecrawl" && updates.webSearchConfig.keyless === true;
     safe.webSearchConfig = {
       fetchEnabled: true,
-      provider: updates.webSearchConfig.provider === "firecrawl" ? "firecrawl" : "brave",
+      provider,
+      ...(keyless ? { keyless: true } : {}),
     };
   } else if (updates.webSearchConfig === null) {
     safe.webSearchConfig = null;

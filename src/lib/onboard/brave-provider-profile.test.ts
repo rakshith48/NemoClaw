@@ -148,4 +148,12 @@ describe("shouldEnableBraveWebSearch", () => {
   it("returns true only when fetchEnabled is explicitly true", () => {
     expect(shouldEnableBraveWebSearch({ fetchEnabled: true })).toBe(true);
   });
+
+  it("returns false for keyless Firecrawl (web_fetch only, no runtime key/profile)", () => {
+    // Keyless Firecrawl configures web_fetch without an API key, so it must not
+    // register a runtime web-search token or import a provider profile.
+    expect(shouldEnableBraveWebSearch({ fetchEnabled: true, keyless: true })).toBe(false);
+    // A keyed config (keyless false/absent) still enables the search token path.
+    expect(shouldEnableBraveWebSearch({ fetchEnabled: true, keyless: false })).toBe(true);
+  });
 });
