@@ -7,7 +7,10 @@ import {
   BRAVE_PROVIDER_PROFILE_ID,
   braveProviderProfilePath,
   ensureBraveProviderProfile,
+  ensureWebSearchProviderProfiles,
+  FIRECRAWL_PROVIDER_PROFILE_ID,
   shouldEnableBraveWebSearch,
+  webSearchProviderProfilePath,
 } from "./brave-provider-profile";
 
 function makeDeps(runOpenshell: ReturnType<typeof vi.fn>, overrides: Record<string, unknown> = {}) {
@@ -84,6 +87,48 @@ describe("ensureBraveProviderProfile", () => {
   });
 });
 
+describe("ensureWebSearchProviderProfiles (Firecrawl)", () => {
+  it("imports the Firecrawl profile from the blueprint path when a firecrawl token is present", () => {
+    const runOpenshell = vi.fn(() => ({ status: 0, stderr: "", stdout: "" }));
+    ensureWebSearchProviderProfiles(
+      [{ providerType: FIRECRAWL_PROVIDER_PROFILE_ID, token: "fc-test" }],
+      makeDeps(runOpenshell),
+    );
+    expect(runOpenshell).toHaveBeenCalledTimes(1);
+    expect(runOpenshell).toHaveBeenCalledWith(
+      [
+        "provider",
+        "profile",
+        "import",
+        "--file",
+        webSearchProviderProfilePath("/repo", FIRECRAWL_PROVIDER_PROFILE_ID),
+      ],
+      expect.objectContaining({ ignoreError: true }),
+    );
+  });
+
+  it("imports both profiles when both web-search tokens are present", () => {
+    const runOpenshell = vi.fn(() => ({ status: 0, stderr: "", stdout: "" }));
+    ensureWebSearchProviderProfiles(
+      [
+        { providerType: BRAVE_PROVIDER_PROFILE_ID, token: "brv-test" },
+        { providerType: FIRECRAWL_PROVIDER_PROFILE_ID, token: "fc-test" },
+      ],
+      makeDeps(runOpenshell),
+    );
+    expect(runOpenshell).toHaveBeenCalledTimes(2);
+  });
+
+  it("does nothing when no web-search token def matches a known profile", () => {
+    const runOpenshell = vi.fn();
+    ensureWebSearchProviderProfiles(
+      [{ providerType: "generic", token: "tok" }],
+      makeDeps(runOpenshell),
+    );
+    expect(runOpenshell).not.toHaveBeenCalled();
+  });
+});
+
 describe("shouldEnableBraveWebSearch", () => {
   it("returns false for null/undefined web search config", () => {
     expect(shouldEnableBraveWebSearch(null)).toBe(false);
@@ -102,5 +147,13 @@ describe("shouldEnableBraveWebSearch", () => {
 
   it("returns true only when fetchEnabled is explicitly true", () => {
     expect(shouldEnableBraveWebSearch({ fetchEnabled: true })).toBe(true);
+  });
+
+  it("returns false for keyless Firecrawl (web_fetch only, no runtime key/profile)", () => {
+    // Keyless Firecrawl configures web_fetch without an API key, so it must not
+    // register a runtime web-search token or import a provider profile.
+    expect(shouldEnableBraveWebSearch({ fetchEnabled: true, keyless: true })).toBe(false);
+    // A keyed config (keyless false/absent) still enables the search token path.
+    expect(shouldEnableBraveWebSearch({ fetchEnabled: true, keyless: false })).toBe(true);
   });
 });

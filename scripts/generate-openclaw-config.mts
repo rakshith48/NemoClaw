@@ -1261,10 +1261,33 @@ export function buildConfig(env: Env = process.env): JsonObject {
     // aborting the image build under `set -eu` before `doctor --fix` can
     // migrate it. Emit the current schema directly so install validates
     // cleanly. See NemoClaw #5266 (follow-up to #4955 / #3948).
-    tools.web.search = { enabled: true, provider: "brave" };
-    config.plugins.entries.brave = {
+    const rawProvider = env.NEMOCLAW_WEB_SEARCH_PROVIDER;
+    const provider = rawProvider === "firecrawl" ? "firecrawl" : "brave";
+    const envKey = provider === "firecrawl" ? "FIRECRAWL_API_KEY" : "BRAVE_API_KEY";
+    tools.web.search = { enabled: true, provider };
+    config.plugins.entries[provider] = {
       enabled: true,
-      config: { webSearch: { apiKey: "openshell:resolve:env:BRAVE_API_KEY" } },
+      config: { webSearch: { apiKey: `openshell:resolve:env:${envKey}` } },
+    };
+  }
+
+  // Firecrawl also serves as a web_fetch provider (page extraction), independent
+  // of search. Route web_fetch through it whenever Firecrawl is selected — in
+  // keyed mode (alongside search) or keyless mode (web_fetch only, no API key,
+  // which OpenClaw's starter tier supports). Brave has no fetch backend, so its
+  // fetch block stays at the default. The plugin entry is merged so a keyed
+  // firecrawl webSearch.apiKey (set above) is preserved alongside webFetch.
+  if (env.NEMOCLAW_WEB_FETCH_PROVIDER === "firecrawl") {
+    tools.web.fetch = { ...(tools.web.fetch as JsonObject), enabled: true, provider: "firecrawl" };
+    const entries = config.plugins.entries as JsonObject;
+    const existingEntry = isObject(entries.firecrawl) ? (entries.firecrawl as JsonObject) : {};
+    const existingEntryConfig = isObject(existingEntry.config)
+      ? (existingEntry.config as JsonObject)
+      : {};
+    entries.firecrawl = {
+      ...existingEntry,
+      enabled: true,
+      config: { ...existingEntryConfig, webFetch: { onlyMainContent: true } },
     };
   }
 

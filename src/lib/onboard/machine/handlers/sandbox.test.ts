@@ -362,7 +362,7 @@ describe("handleSandboxState", () => {
   it("recreates when a saved web search sandbox is no longer supported", async () => {
     const session = createSession({
       sandboxName: "saved",
-      webSearchConfig: { fetchEnabled: true },
+      webSearchConfig: { fetchEnabled: true, provider: "brave" },
     });
     session.steps.sandbox.status = "complete";
     const { deps, calls } = createDeps({
@@ -393,7 +393,7 @@ describe("handleSandboxState", () => {
   it("drops saved web search config when credential revalidation returns to provider selection", async () => {
     const session = createSession({
       sandboxName: "saved",
-      webSearchConfig: { fetchEnabled: true },
+      webSearchConfig: { fetchEnabled: true, provider: "brave" },
     });
     session.steps.sandbox.status = "complete";
     const backToSelection = Object.freeze({ kind: "NEMOCLAW_BACK_TO_SELECTION" });

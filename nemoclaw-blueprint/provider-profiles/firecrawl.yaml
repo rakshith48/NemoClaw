@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+id: firecrawl
+display_name: Firecrawl Search
+description: Firecrawl Search and Scrape API access
+category: agent
+credentials:
+  - name: api_key
+    description: Firecrawl API key
+    env_vars:
+      - FIRECRAWL_API_KEY
+    required: true
+    # Firecrawl authenticates with `Authorization: Bearer <FIRECRAWL_API_KEY>`.
+    # brave.yaml is the only existing profile and uses auth_style: header with a
+    # bare token; the OpenShell-side spelling for a Bearer-prefixed header is
+    # unverified here. REVIEWER: confirm the correct auth_style / prefix field
+    # OpenShell expects for a Bearer header before relying on the L7 rewrite.
+    auth_style: header
+    header_name: authorization
+    value_prefix: 'Bearer '
+    query_param: ''
+endpoints:
+  - host: api.firecrawl.dev
+    port: 443
+    protocol: rest
+    access: read-write
+    enforcement: enforce
+binaries:
+  - /usr/local/bin/node
+  - /usr/bin/node
+  - /usr/local/bin/curl
+  - /usr/bin/curl
+inference_capable: false

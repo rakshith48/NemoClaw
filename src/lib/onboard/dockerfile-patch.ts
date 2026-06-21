@@ -251,9 +251,25 @@ export function patchStagedDockerfile(
       `ARG NEMOCLAW_PROXY_PORT=${sanitizeDockerArg(proxyPortEnv)}`,
     );
   }
+  // Keyless Firecrawl configures web_fetch only (no API key, no web_search), so
+  // the search build path stays disabled while the fetch provider is still set
+  // below. Keyed providers enable search as before.
+  const webSearchEnabled = Boolean(webSearchConfig) && webSearchConfig?.keyless !== true;
   dockerfile = dockerfile.replace(
     /^ARG NEMOCLAW_WEB_SEARCH_ENABLED=.*$/m,
-    `ARG NEMOCLAW_WEB_SEARCH_ENABLED=${sanitizeDockerArg(webSearchConfig ? "1" : "0")}`,
+    `ARG NEMOCLAW_WEB_SEARCH_ENABLED=${sanitizeDockerArg(webSearchEnabled ? "1" : "0")}`,
+  );
+  const webSearchProvider = webSearchConfig?.provider === "firecrawl" ? "firecrawl" : "brave";
+  dockerfile = dockerfile.replace(
+    /^ARG NEMOCLAW_WEB_SEARCH_PROVIDER=.*$/m,
+    `ARG NEMOCLAW_WEB_SEARCH_PROVIDER=${sanitizeDockerArg(webSearchProvider)}`,
+  );
+  // Firecrawl doubles as a web_fetch provider in both keyed and keyless modes,
+  // so signal it independently of search. Empty for non-Firecrawl selections.
+  const webFetchProvider = webSearchConfig?.provider === "firecrawl" ? "firecrawl" : "";
+  dockerfile = dockerfile.replace(
+    /^ARG NEMOCLAW_WEB_FETCH_PROVIDER=.*$/m,
+    `ARG NEMOCLAW_WEB_FETCH_PROVIDER=${sanitizeDockerArg(webFetchProvider)}`,
   );
   for (const envKey of [
     "NEMOCLAW_OPENCLAW_OTEL",

@@ -850,15 +850,63 @@ describe("onboard session", () => {
   it("persists and clears web search config through safe session updates", () => {
     session.saveSession(session.createSession());
     session.markStepComplete("provider_selection", {
-      webSearchConfig: { fetchEnabled: true },
+      webSearchConfig: { fetchEnabled: true, provider: "brave" },
     });
 
     let loaded = requireLoadedSession(session.loadSession());
-    expect(loaded.webSearchConfig).toEqual({ fetchEnabled: true });
+    expect(loaded.webSearchConfig).toEqual({ fetchEnabled: true, provider: "brave" });
 
     session.completeSession({ webSearchConfig: null });
     loaded = requireLoadedSession(session.loadSession());
     expect(loaded.webSearchConfig).toBeNull();
+  });
+
+  it("round-trips the Firecrawl web search provider through persisted sessions", () => {
+    session.saveSession(
+      session.createSession({
+        webSearchConfig: {
+          fetchEnabled: true,
+          provider: "firecrawl",
+        },
+      }),
+    );
+
+    const loaded = requireLoadedSession(session.loadSession());
+    expect(loaded.webSearchConfig).toEqual({
+      fetchEnabled: true,
+      provider: "firecrawl",
+    });
+  });
+
+  it("round-trips the keyless Firecrawl flag through persisted sessions", () => {
+    session.saveSession(
+      session.createSession({
+        webSearchConfig: { fetchEnabled: true, provider: "firecrawl", keyless: true },
+      }),
+    );
+
+    const loaded = requireLoadedSession(session.loadSession());
+    expect(loaded.webSearchConfig).toEqual({
+      fetchEnabled: true,
+      provider: "firecrawl",
+      keyless: true,
+    });
+  });
+
+  it("drops the keyless flag for non-Firecrawl providers", () => {
+    // keyless is Firecrawl-only; a brave config must not carry it through.
+    session.saveSession(
+      session.createSession({
+        webSearchConfig: {
+          fetchEnabled: true,
+          provider: "brave",
+          keyless: true,
+        } as never,
+      }),
+    );
+
+    const loaded = requireLoadedSession(session.loadSession());
+    expect(loaded.webSearchConfig).toEqual({ fetchEnabled: true, provider: "brave" });
   });
 
   it("does not clear existing metadata when updates omit whitelisted metadata fields", () => {

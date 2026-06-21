@@ -25,6 +25,10 @@ const BRAVE_PROVIDER_PROFILE_PATH = new URL(
   "../nemoclaw-blueprint/provider-profiles/brave.yaml",
   import.meta.url,
 );
+const FIRECRAWL_PROVIDER_PROFILE_PATH = new URL(
+  "../nemoclaw-blueprint/provider-profiles/firecrawl.yaml",
+  import.meta.url,
+);
 const PERMISSIVE_POLICY_PATH = new URL(
   "../nemoclaw-blueprint/policies/openclaw-sandbox-permissive.yaml",
   import.meta.url,
@@ -463,6 +467,32 @@ describe("Brave Search provider profile", () => {
     expect(profile.endpoints).toEqual([
       expect.objectContaining({
         host: "api.search.brave.com",
+        port: 443,
+        protocol: "rest",
+        access: "read-write",
+        enforcement: "enforce",
+      }),
+    ]);
+  });
+});
+
+describe("Firecrawl Search provider profile", () => {
+  const profile = loadYaml<ProviderProfile>(FIRECRAWL_PROVIDER_PROFILE_PATH);
+
+  it("routes FIRECRAWL_API_KEY through an Authorization header", () => {
+    expect(profile.id).toBe("firecrawl");
+    expect(profile.credentials?.[0]).toEqual(
+      expect.objectContaining({
+        env_vars: ["FIRECRAWL_API_KEY"],
+        header_name: "authorization",
+      }),
+    );
+  });
+
+  it("matches the Firecrawl API endpoint used by the policy preset", () => {
+    expect(profile.endpoints).toEqual([
+      expect.objectContaining({
+        host: "api.firecrawl.dev",
         port: 443,
         protocol: "rest",
         access: "read-write",

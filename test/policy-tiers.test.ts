@@ -119,13 +119,14 @@ describe("tiers", () => {
   });
 
   describe("tier: balanced", () => {
-    it("includes npm, pypi, huggingface, brew, brave, and weather", () => {
+    it("includes npm, pypi, huggingface, brew, brave, firecrawl, and weather", () => {
       const names = mustGetTier("balanced").presets.map((preset: TierPreset) => preset.name);
       expect(names).toContain("npm");
       expect(names).toContain("pypi");
       expect(names).toContain("huggingface");
       expect(names).toContain("brew");
       expect(names).toContain("brave");
+      expect(names).toContain("firecrawl");
       expect(names).toContain("weather");
     });
 
@@ -137,7 +138,7 @@ describe("tiers", () => {
       const accessByName = new Map(
         mustGetTier("balanced").presets.map((preset: TierPreset) => [preset.name, preset.access]),
       );
-      for (const name of ["npm", "pypi", "huggingface", "brew", "brave"]) {
+      for (const name of ["npm", "pypi", "huggingface", "brew", "brave", "firecrawl"]) {
         expect(accessByName.get(name)).toBe("read-write");
       }
       expect(accessByName.get("weather")).toBe("read");
@@ -170,6 +171,7 @@ describe("tiers", () => {
         "huggingface",
         "brew",
         "brave",
+        "firecrawl",
         "slack",
         "discord",
         "telegram",
@@ -223,7 +225,7 @@ describe("tiers", () => {
       const resolved: TierPreset[] = resolveTierPresets("balanced");
       expect(resolved.length).toBeGreaterThanOrEqual(6);
       const accessByName = new Map(resolved.map((preset) => [preset.name, preset.access]));
-      for (const name of ["npm", "pypi", "huggingface", "brew", "brave"]) {
+      for (const name of ["npm", "pypi", "huggingface", "brew", "brave", "firecrawl"]) {
         expect(accessByName.get(name)).toBe("read-write");
       }
       expect(accessByName.get("weather")).toBe("read");

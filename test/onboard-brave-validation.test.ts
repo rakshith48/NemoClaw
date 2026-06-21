@@ -380,7 +380,7 @@ const { configureWebSearch } = require(${onboardPath});
       });
       expect(result.status).toBe(0);
       const payload = JSON.parse(fs.readFileSync(outputPath, "utf-8"));
-      expect(payload.result).toEqual({ fetchEnabled: true });
+      expect(payload.result).toEqual({ fetchEnabled: true, provider: "brave" });
       expect(payload.braveKey).toBe("saved-brave-key");
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -416,14 +416,16 @@ const { configureWebSearch } = require(${onboardPath});
 
     expect(exitCode).toBe(0);
     expect(payload.exitCalls).toEqual([]);
-    expect(payload.result).toEqual({ fetchEnabled: true });
+    expect(payload.result).toEqual({ fetchEnabled: true, provider: "brave" });
   });
 });
 
 describe("configureWebSearch (interactive)", () => {
-  it("returns to the Brave Search enable prompt when backing out of the API key prompt", () => {
+  it("returns to the provider selection prompt when backing out of the Brave API key prompt", () => {
+    // Choose Brave (2) -> at the key prompt type "back" -> provider selection
+    // re-appears -> choose no web search (1).
     const { exitCode, payload } = runInteractiveConfigureWebSearch({
-      answers: ["y", "back", "n"],
+      answers: ["2", "back", "1"],
     });
 
     expect(exitCode).toBe(0);
@@ -433,7 +435,7 @@ describe("configureWebSearch (interactive)", () => {
     expect(payload.errors).toEqual([]);
     expect(payload.saved.every((entry) => entry.value !== "back")).toBe(true);
     expect(
-      payload.prompts.filter((entry) => /Enable Brave Web Search\?/.test(entry.message)),
+      payload.prompts.filter((entry) => /Choose \[1-3\]: /.test(entry.message)),
     ).toHaveLength(2);
     expect(
       payload.prompts.some((entry) => /Brave Search API key: /.test(entry.message) && entry.secret),
@@ -442,7 +444,7 @@ describe("configureWebSearch (interactive)", () => {
 
   it("exits from the Brave Search API key prompt", () => {
     const { exitCode, payload } = runInteractiveConfigureWebSearch({
-      answers: ["y", "exit"],
+      answers: ["2", "exit"],
     });
 
     expect(exitCode).toBe(0);

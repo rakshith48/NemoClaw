@@ -78,7 +78,7 @@ describe("prepareCreateSandboxMessaging", () => {
 
     const result = prepareCreateSandboxMessaging(
       createInput({
-        webSearchConfig: { fetchEnabled: true },
+        webSearchConfig: { fetchEnabled: true, provider: "brave" },
         env: { [BRAVE_API_KEY_ENV]: "   " },
         registerExtraPlaceholderProviders,
       }),
@@ -97,7 +97,7 @@ describe("prepareCreateSandboxMessaging", () => {
 
     const result = prepareCreateSandboxMessaging(
       createInput({
-        webSearchConfig: { fetchEnabled: true },
+        webSearchConfig: { fetchEnabled: true, provider: "brave" },
         env: { [BRAVE_API_KEY_ENV]: "brv-host" },
         getCredential: (envKey) => (envKey === BRAVE_API_KEY_ENV ? "brv-store" : null),
         registerExtraPlaceholderProviders,
@@ -157,7 +157,7 @@ describe("prepareCreateSandboxMessaging", () => {
   it("uses BRAVE_API_KEY from host env when the credential store has no value", () => {
     const result = prepareCreateSandboxMessaging(
       createInput({
-        webSearchConfig: { fetchEnabled: true },
+        webSearchConfig: { fetchEnabled: true, provider: "brave" },
         env: { [BRAVE_API_KEY_ENV]: "  brv-host  " },
       }),
     );
