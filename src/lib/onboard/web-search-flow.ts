@@ -349,8 +349,8 @@ export function createWebSearchFlowHelpers(deps: WebSearchFlowDeps): WebSearchFl
   // BACK_TO_SELECTION to return to the provider picker.
   async function promptFirecrawlKeyMode(): Promise<"keyed" | "keyless" | BackToSelection> {
     console.log("");
-    console.log("  Firecrawl offers a keyless starter tier for web fetch (page extraction).");
-    console.log("  Web search and firecrawl_scrape require an API key.");
+    console.log("  Firecrawl web search and web fetch require an API key.");
+    console.log("  Without a key, Firecrawl still offers a keyless starter tier for web fetch.");
     console.log("    [1] I have a Firecrawl API key (enables web search + web fetch)");
     console.log("    [2] Keyless — web fetch only, no API key");
     while (true) {
